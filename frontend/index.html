@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TranspoBot — Gestion de Transport</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i data-lucide="bus"></i></div>
+      <div class="logo-text">
+        <span class="logo-title">TranspoBot</span>
+        <span class="logo-sub">Transport Urbain</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" onclick="showTab('dashboard', this)">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="showTab('vehicules', this)">
+        <i data-lucide="truck"></i>
+        <span>Véhicules</span>
+      </button>
+      <button class="nav-item" onclick="showTab('chauffeurs', this)">
+        <i data-lucide="users"></i>
+        <span>Chauffeurs</span>
+      </button>
+      <button class="nav-item" onclick="showTab('trajets', this)">
+        <i data-lucide="map"></i>
+        <span>Trajets</span>
+      </button>
+      <button class="nav-item" onclick="showTab('chat', this)">
+        <i data-lucide="bot"></i>
+        <span>Assistant IA</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><i data-lucide="user"></i></div>
+        <div>
+          <div class="user-name">Gestionnaire</div>
+          <div class="user-role">Administrateur</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-wrapper">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title" id="page-title">Dashboard</h1>
+      </div>
+      <div class="topbar-right">
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          API connectée
+        </div>
+        <button class="btn-icon" onclick="refreshAll()" title="Actualiser">
+          <i data-lucide="refresh-cw"></i>
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- TAB : Dashboard -->
+      <section id="tab-dashboard" class="tab active">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-blue"><i data-lucide="check-circle"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="stat-trajets">—</div>
+              <div class="kpi-lbl">Trajets terminés</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-orange"><i data-lucide="navigation"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="stat-encours">—</div>
+              <div class="kpi-lbl">En cours</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-green"><i data-lucide="truck"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="stat-vehicules">—</div>
+              <div class="kpi-lbl">Véhicules actifs</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-red"><i data-lucide="alert-triangle"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="stat-incidents">—</div>
+              <div class="kpi-lbl">Incidents ouverts</div>
+            </div>
+          </div>
+          <div class="kpi-card kpi-wide">
+            <div class="kpi-icon kpi-purple"><i data-lucide="banknote"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="stat-recette">—</div>
+              <div class="kpi-lbl">Recette totale (FCFA)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="clock"></i>
+              Trajets récents
+            </div>
+          </div>
+          <div class="table-wrap" id="trajets-table">
+            <div class="loading"><i data-lucide="loader"></i> Chargement...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB : Véhicules -->
+      <section id="tab-vehicules" class="tab">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="truck"></i>
+              Flotte de véhicules
+            </div>
+          </div>
+          <div class="table-wrap" id="vehicules-table">
+            <div class="loading"><i data-lucide="loader"></i> Chargement...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB : Chauffeurs -->
+      <section id="tab-chauffeurs" class="tab">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="users"></i>
+              Liste des chauffeurs
+            </div>
+          </div>
+          <div class="table-wrap" id="chauffeurs-table">
+            <div class="loading"><i data-lucide="loader"></i> Chargement...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB : Trajets -->
+      <section id="tab-trajets" class="tab">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="map"></i>
+              Trajets récents
+            </div>
+          </div>
+          <div class="table-wrap" id="trajets-full-table">
+            <div class="loading"><i data-lucide="loader"></i> Chargement...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB : Chat IA -->
+      <section id="tab-chat" class="tab">
+        <div class="chat-layout">
+
+          <div class="chat-main card">
+            <div class="card-header">
+              <div class="card-title">
+                <i data-lucide="bot"></i>
+                Assistant TranspoBot
+              </div>
+              <div class="status-badge">
+                <span class="status-dot"></span>
+                IA active
+              </div>
+            </div>
+
+            <div class="chat-box" id="chat-box">
+              <div class="msg bot">
+                <div class="msg-avatar"><i data-lucide="bot"></i></div>
+                <div class="bubble">
+                  Bonjour ! Je suis TranspoBot, votre assistant intelligent.<br>
+                  Posez-moi n'importe quelle question sur votre flotte, vos trajets ou vos chauffeurs.
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-area">
+              <input type="text" id="user-input"
+                placeholder="Ex : Combien de trajets cette semaine ?"
+                onkeypress="if(event.key==='Enter') sendMessage()">
+              <button class="btn-send" onclick="sendMessage()">
+                <i data-lucide="send"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="chat-side">
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">
+                  <i data-lucide="zap"></i>
+                  Suggestions
+                </div>
+              </div>
+              <div class="suggestions">
+                <button onclick="ask('Combien de trajets ont été effectués cette semaine ?')">
+                  <i data-lucide="calendar"></i>
+                  Trajets cette semaine
+                </button>
+                <button onclick="ask('Quel chauffeur a le plus de trajets ?')">
+                  <i data-lucide="award"></i>
+                  Meilleur chauffeur
+                </button>
+                <button onclick="ask('Quels véhicules sont en maintenance ?')">
+                  <i data-lucide="wrench"></i>
+                  Véhicules en maintenance
+                </button>
+                <button onclick="ask('Liste les incidents graves non résolus')">
+                  <i data-lucide="alert-circle"></i>
+                  Incidents graves
+                </button>
+                <button onclick="ask('Quelle est la recette totale du mois de mars 2026 ?')">
+                  <i data-lucide="trending-up"></i>
+                  Recette mars 2026
+                </button>
+                <button onclick="ask('Quel chauffeur a le plus d incidents ce mois-ci ?')">
+                  <i data-lucide="user-x"></i>
+                  Incidents par chauffeur
+                </button>
+              </div>
+            </div>
+
+            <div class="card" id="results-section" style="display:none">
+              <div class="card-header">
+                <div class="card-title">
+                  <i data-lucide="table"></i>
+                  Résultats
+                </div>
+              </div>
+              <div class="table-wrap" id="results-table"></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
