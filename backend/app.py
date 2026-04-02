@@ -4,13 +4,14 @@ Projet GLSi L3 — ESP/UCAD
 """
 
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import mysql.connector
 import os
 import re
 import json
+from decimal import Decimal
+from datetime import datetime, date
 import httpx
 from dotenv import load_dotenv
 
@@ -34,8 +35,8 @@ DB_CONFIG = {
 }
 
 LLM_API_KEY  = os.getenv("OPENAI_API_KEY", "")
-LLM_MODEL    = os.getenv("LLM_MODEL", "gpt-4o-mini")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
+LLM_MODEL    = os.getenv("LLM_MODEL", "llama3-8b-8192")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 
 # ── Schéma de la base (pour le prompt système) ─────────────────
 DB_SCHEMA = """
@@ -55,25 +56,58 @@ Tu aides les gestionnaires à interroger la base de données en langage naturel.
 {DB_SCHEMA}
 
 RÈGLES IMPORTANTES :
-1. Génère UNIQUEMENT des requêtes SELECT (pas de INSERT, UPDATE, DELETE, DROP).
-2. Réponds TOUJOURS en JSON avec ce format :
-   {{"sql": "SELECT ...", "explication": "Ce que fait la requête"}}
+1. Génère UNIQUEMENT des requêtes SELECT (pas de INSERT, UPDATE, DELETE, DROP, ALTER, CREATE).
+2. Réponds TOUJOURS en JSON strict avec ce format exact, sans texte avant ou après :
+   {{"sql": "SELECT ...", "explication": "Ce que fait la requête en français"}}
 3. Si la question ne peut pas être répondue avec SQL, réponds :
-   {{"sql": null, "explication": "Explication de pourquoi"}}
-4. Utilise des alias clairs dans les requêtes.
-5. Limite les résultats à 100 lignes maximum avec LIMIT.
+   {{"sql": null, "explication": "Explication claire en français"}}
+4. Utilise des alias lisibles dans les requêtes (ex: COUNT(*) as total).
+5. Ajoute toujours LIMIT 100 sauf si la question demande un résultat unique.
+6. Pour les dates, utilise les fonctions MySQL : NOW(), DATE_SUB(), MONTH(), YEAR().
 """
+
+# ── Sérialisation JSON MySQL ───────────────────────────────────
+def serialize(obj):
+    """Convertit les types MySQL non-JSON-sérialisables."""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, bytes):
+        return bool(obj[0]) if obj else False
+    raise TypeError(f"Type non sérialisable : {type(obj)}")
+
+def serialize_rows(rows: list) -> list:
+    return json.loads(json.dumps(rows, default=serialize))
+
+# ── Validation SQL ─────────────────────────────────────────────
+FORBIDDEN = re.compile(
+    r'\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|GRANT|REVOKE)\b',
+    re.IGNORECASE
+)
+
+def is_safe_sql(sql: str) -> bool:
+    """Vérifie que la requête est bien un SELECT sans commandes dangereuses."""
+    sql_clean = sql.strip()
+    if not sql_clean.upper().startswith("SELECT"):
+        return False
+    if FORBIDDEN.search(sql_clean):
+        return False
+    return True
 
 # ── Connexion MySQL ────────────────────────────────────────────
 def get_db():
     return mysql.connector.connect(**DB_CONFIG)
 
-def execute_query(sql: str):
+def execute_query(sql: str) -> list:
+    if not is_safe_sql(sql):
+        raise ValueError("Requête non autorisée : seules les requêtes SELECT sont permises.")
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
     try:
         cursor.execute(sql)
-        return cursor.fetchall()
+        rows = cursor.fetchall()
+        return serialize_rows(rows)
     finally:
         cursor.close()
         conn.close()
@@ -96,10 +130,12 @@ async def ask_llm(question: str) -> dict:
         )
         response.raise_for_status()
         content = response.json()["choices"][0]["message"]["content"]
+
+        # Extraire le JSON même si le LLM ajoute du texte autour
         match = re.search(r'\{.*\}', content, re.DOTALL)
         if match:
             return json.loads(match.group())
-        raise ValueError("Réponse LLM invalide")
+        raise ValueError(f"Réponse LLM invalide : {content}")
 
 # ── Modèles ────────────────────────────────────────────────────
 class ChatMessage(BaseModel):
@@ -117,6 +153,10 @@ async def chat(msg: ChatMessage):
         if not sql:
             return {"answer": explication, "data": [], "sql": None}
 
+        # Double vérification sécurité côté backend
+        if not is_safe_sql(sql):
+            raise ValueError("Le LLM a généré une requête non autorisée.")
+
         data = execute_query(sql)
         return {
             "answer": explication,
@@ -124,6 +164,10 @@ async def chat(msg: ChatMessage):
             "sql": sql,
             "count": len(data),
         }
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=502, detail=f"Erreur LLM : {e.response.text}")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -170,7 +214,7 @@ def get_trajets_recent():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "app": "TranspoBot"}
+    return {"status": "ok", "app": "TranspoBot", "model": LLM_MODEL}
 
 # ── Lancement ─────────────────────────────────────────────────
 if __name__ == "__main__":

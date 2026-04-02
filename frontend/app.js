@@ -195,6 +195,7 @@ function addMessage(role, text, sql = null) {
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
   lucide.createIcons();
+  return div; // retourne l'élément pour pouvoir le supprimer précisément
 }
 
 async function sendMessage() {
@@ -203,8 +204,12 @@ async function sendMessage() {
   if (!question) return;
   input.value = '';
 
+  // Désactiver le bouton pendant la requête
+  const btn = document.querySelector('.btn-send');
+  btn.disabled = true;
+
   addMessage('user', question);
-  addMessage('bot', '<span style="color:var(--gray-400)">Analyse en cours...</span>');
+  const loadingMsg = addMessage('bot', '<span style="color:var(--gray-400)">Analyse en cours...</span>');
 
   try {
     const r = await fetch(`${API}/api/chat`, {
@@ -212,10 +217,16 @@ async function sendMessage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ question }),
     });
+
+    loadingMsg.remove();
+
+    if (!r.ok) {
+      const err = await r.json();
+      addMessage('bot', `Erreur : ${err.detail || 'Réponse inattendue du serveur.'}`);
+      return;
+    }
+
     const data = await r.json();
-
-    document.querySelector('#chat-box .msg.bot:last-child').remove();
-
     const countText = data.count !== undefined
       ? ` <span style="color:var(--gray-400);font-size:12px">(${data.count} résultat${data.count > 1 ? 's' : ''})</span>`
       : '';
@@ -234,7 +245,9 @@ async function sendMessage() {
       section.style.display = 'none';
     }
   } catch (e) {
-    document.querySelector('#chat-box .msg.bot:last-child').remove();
-    addMessage('bot', 'Erreur de connexion au serveur. Vérifiez que le backend est démarré.');
+    loadingMsg.remove();
+    addMessage('bot', 'Impossible de joindre le serveur. Vérifiez que le backend est démarré sur le port 8000.');
+  } finally {
+    btn.disabled = false;
   }
 }
