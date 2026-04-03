@@ -1,6 +1,5 @@
 -- ============================================================
 --  TranspoBot — Base de données MySQL
---  Projet GLSi L3 — ESP/UCAD
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS transpobot CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -83,6 +82,16 @@ CREATE TABLE incidents (
     FOREIGN KEY (trajet_id) REFERENCES trajets(id)
 );
 
+-- Gestionnaires (authentification)
+CREATE TABLE gestionnaires (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    mot_de_passe VARCHAR(255) NOT NULL,  -- bcrypt hash
+    actif BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ============================================================
 --  Données de test
 -- ============================================================
@@ -125,3 +134,7 @@ INSERT INTO incidents (trajet_id, type, description, gravite, date_incident, res
 (2, 'retard', 'Embouteillage au centre-ville', 'faible', '2026-03-01 08:45:00', TRUE),
 (3, 'panne', 'Crevaison pneu avant droit', 'moyen', '2026-03-02 07:30:00', TRUE),
 (6, 'accident', 'Accrochage léger au rond-point', 'grave', '2026-03-12 09:20:00', FALSE);
+
+-- Gestionnaire par défaut : admin@transpobot.sn / admin123
+INSERT INTO gestionnaires (nom, email, mot_de_passe) VALUES
+('Administrateur', 'admin@transpobot.sn', '$2b$12$v0rc5ZYWyHshz4m9QaqIP.QFsTKuWXLOG/Ztc1yAY7fWgX2PumF3u');

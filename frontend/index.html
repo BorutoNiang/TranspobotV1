@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js" defer></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -47,11 +47,17 @@
 
     <div class="sidebar-footer">
       <div class="user-info">
-        <div class="user-avatar"><i data-lucide="user"></i></div>
         <div>
-          <div class="user-name">Gestionnaire</div>
-          <div class="user-role">Administrateur</div>
+          <div class="user-avatar"><i data-lucide="user"></i></div>
+          <div>
+            <div class="user-name" id="user-name">Gestionnaire</div>
+            <div class="user-role" id="user-email">—</div>
+          </div>
         </div>
+        <button class="logout-btn" onclick="logout()" title="Se déconnecter">
+          <i data-lucide="log-out"></i>
+          <span>Se déconnecter</span>
+        </button>
       </div>
     </div>
   </aside>
@@ -264,6 +270,6 @@
     </main>
   </div>
 
-<script src="app.js"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

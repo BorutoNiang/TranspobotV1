@@ -132,6 +132,12 @@ body {
 
 .user-info {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user-info > div:first-child {
+  display: flex;
   align-items: center;
   gap: 10px;
 }
@@ -157,6 +163,26 @@ body {
   font-size: 11px;
   color: var(--gray-400);
 }
+
+.logout-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--gray-400);
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.logout-btn:hover { background: rgba(220,38,38,0.15); border-color: #dc2626; color: #fca5a5; }
+.logout-btn svg { width: 14px; height: 14px; }
 
 /* ── Main wrapper ── */
 .main-wrapper {

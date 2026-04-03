@@ -1,8 +1,10 @@
+﻿function logout() { localStorage.clear(); window.location.replace('/login.html'); }
+
 const API = 'http://localhost:8000';
 
 // ── Init Lucide icons ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  lucide.createIcons();
+  if(typeof lucide !== "undefined") lucide.createIcons();
   loadStats();
   loadTrajets();
 });
@@ -102,7 +104,7 @@ async function loadTrajets() {
       { key: 'recette',           label: 'Recette',   render: v => fmtNum(v) + ' FCFA' },
       { key: 'statut',            label: 'Statut',    render: badge },
     ]);
-    lucide.createIcons();
+    if(typeof lucide !== "undefined") lucide.createIcons();
   } catch (e) {
     document.getElementById('trajets-table').innerHTML = '<div class="empty">Données non disponibles.</div>';
   }
@@ -121,7 +123,7 @@ async function loadVehicules() {
       { key: 'statut',           label: 'Statut',      render: badge },
       { key: 'date_acquisition', label: 'Acquisition', render: fmtDate },
     ]);
-    lucide.createIcons();
+    if(typeof lucide !== "undefined") lucide.createIcons();
   } catch (e) {
     document.getElementById('vehicules-table').innerHTML = '<div class="empty">Données non disponibles.</div>';
   }
@@ -144,7 +146,7 @@ async function loadChauffeurs() {
           : '<span class="badge badge-red">Indisponible</span>' },
       { key: 'date_embauche',    label: 'Embauche',  render: fmtDate },
     ]);
-    lucide.createIcons();
+    if(typeof lucide !== "undefined") lucide.createIcons();
   } catch (e) {
     document.getElementById('chauffeurs-table').innerHTML = '<div class="empty">Données non disponibles.</div>';
   }
@@ -165,7 +167,7 @@ async function loadTrajetsTab() {
       { key: 'recette',           label: 'Recette',  render: v => fmtNum(v) + ' FCFA' },
       { key: 'statut',            label: 'Statut',   render: badge },
     ]);
-    lucide.createIcons();
+    if(typeof lucide !== "undefined") lucide.createIcons();
   } catch (e) {
     document.getElementById('trajets-full-table').innerHTML = '<div class="empty">Données non disponibles.</div>';
   }
@@ -194,7 +196,7 @@ function addMessage(role, text, sql = null) {
   `;
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
-  lucide.createIcons();
+  if(typeof lucide !== "undefined") lucide.createIcons();
   return div; // retourne l'élément pour pouvoir le supprimer précisément
 }
 
@@ -240,7 +242,7 @@ async function sendMessage() {
         data.data,
         keys.map(k => ({ key: k, label: k }))
       );
-      lucide.createIcons();
+      if(typeof lucide !== "undefined") lucide.createIcons();
     } else {
       section.style.display = 'none';
     }
@@ -251,3 +253,4 @@ async function sendMessage() {
     btn.disabled = false;
   }
 }
+
