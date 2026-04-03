@@ -201,6 +201,32 @@ def get_trajets_recent():
 def health():
     return {"status": "ok", "app": "TranspoBot", "model": LLM_MODEL}
 
+@app.get("/api/init-db")
+def init_db():
+    """Route temporaire pour initialiser la BDD sur Railway"""
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS gestionnaires (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                nom VARCHAR(100) NOT NULL,
+                email VARCHAR(150) NOT NULL UNIQUE,
+                mot_de_passe VARCHAR(255) NOT NULL,
+                actif BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            INSERT IGNORE INTO gestionnaires (nom, email, mot_de_passe) VALUES
+            ('Administrateur', 'admin@transpobot.sn', '$2b$12$v0rc5ZYWyHshz4m9QaqIP.QFsTKuWXLOG/Ztc1yAY7fWgX2PumF3u')
+        """)
+        conn.commit()
+        return {"status": "ok", "message": "Base de données initialisée"}
+    finally:
+        cursor.close()
+        conn.close()
+
 frontend_path = os.path.join(os.path.dirname(__file__), "../frontend")
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
