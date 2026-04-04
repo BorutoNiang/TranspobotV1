@@ -1,52 +1,64 @@
-﻿function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('sidebar-overlay').classList.toggle('open');
-}
-
-function logout() { localStorage.clear(); window.location.replace('/login.html'); }
-
 const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://gregarious-ambition-production-302e.up.railway.app';
 
-// ── Init Lucide icons ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  if(typeof lucide !== "undefined") lucide.createIcons();
+function getToken() { return localStorage.getItem('token'); }
+
+function logout() {
+  localStorage.clear();
+  window.location.replace('login.html');
+}
+
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  var overlay = document.getElementById('sidebar-overlay');
+  if (overlay) overlay.classList.toggle('open');
+}
+
+function authFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign(
+    { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+    opts.headers || {}
+  );
+  return fetch(url, opts).then(function(r) {
+    if (r.status === 401) { logout(); }
+    return r;
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  if (!getToken()) { window.location.replace('login.html'); return; }
+  lucide.createIcons();
+  var nameEl = document.getElementById('user-name');
+  var emailEl = document.getElementById('user-email');
+  if (nameEl) nameEl.textContent = localStorage.getItem('user_nom') || 'Gestionnaire';
+  if (emailEl) emailEl.textContent = localStorage.getItem('user_email') || '';
   loadStats();
   loadTrajets();
 });
 
-// ── Navigation ────────────────────────────────────────────────
-const pageTitles = {
-  dashboard: 'Dashboard',
-  vehicules: 'Véhicules',
-  chauffeurs: 'Chauffeurs',
-  trajets: 'Trajets',
-  chat: 'Assistant IA',
-};
+var pageTitles = { dashboard: 'Dashboard', vehicules: 'Véhicules', chauffeurs: 'Chauffeurs', trajets: 'Trajets', chat: 'Assistant IA' };
 
 function showTab(name, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
-  document.getElementById(`tab-${name}`).classList.add('active');
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('tab-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
   document.getElementById('page-title').textContent = pageTitles[name] || name;
-
   if (name === 'vehicules') loadVehicules();
   if (name === 'chauffeurs') loadChauffeurs();
   if (name === 'trajets') loadTrajetsTab();
+  document.querySelector('.sidebar').classList.remove('open');
+  var overlay = document.getElementById('sidebar-overlay');
+  if (overlay) overlay.classList.remove('open');
 }
 
 function refreshAll() {
-  const icon = document.querySelector('.btn-icon svg');
-  if (icon) icon.style.animation = 'spin 0.6s linear';
-  setTimeout(() => { if (icon) icon.style.animation = ''; }, 700);
   loadStats();
   loadTrajets();
 }
 
-// ── Helpers ───────────────────────────────────────────────────
 function badge(statut) {
-  const map = {
+  var map = {
     'termine':     ['badge-green',  'Terminé'],
     'actif':       ['badge-green',  'Actif'],
     'en_cours':    ['badge-orange', 'En cours'],
@@ -55,8 +67,8 @@ function badge(statut) {
     'annule':      ['badge-red',    'Annulé'],
     'hors_service':['badge-red',    'Hors service'],
   };
-  const [cls, label] = map[statut] || ['badge-gray', statut];
-  return `<span class="badge ${cls}">${label}</span>`;
+  var entry = map[statut] || ['badge-gray', statut];
+  return '<span class="badge ' + entry[0] + '">' + entry[1] + '</span>';
 }
 
 function fmtDate(v) {
@@ -70,196 +82,157 @@ function fmtDateTime(v) {
 }
 
 function fmtNum(v) {
-  return v !== undefined && v !== null ? Number(v).toLocaleString('fr-FR') : '—';
+  return (v !== undefined && v !== null) ? Number(v).toLocaleString('fr-FR') : '—';
 }
 
 function buildTable(data, columns) {
   if (!data || !data.length) return '<div class="empty">Aucune donnée disponible.</div>';
-  const headers = columns.map(c => `<th>${c.label}</th>`).join('');
-  const rows = data.map(row =>
-    `<tr>${columns.map(c => `<td>${c.render ? c.render(row[c.key], row) : (row[c.key] ?? '—')}</td>`).join('')}</tr>`
-  ).join('');
-  return `<table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
+  var headers = columns.map(function(c) { return '<th>' + c.label + '</th>'; }).join('');
+  var rows = data.map(function(row) {
+    return '<tr>' + columns.map(function(c) {
+      var val = c.render ? c.render(row[c.key], row) : (row[c.key] != null ? row[c.key] : '—');
+      return '<td>' + val + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+  return '<table><thead><tr>' + headers + '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
-// ── Dashboard ─────────────────────────────────────────────────
 async function loadStats() {
   try {
-    const r = await fetch(`${API}/api/stats`);
-    const d = await r.json();
+    var r = await authFetch(API + '/api/stats');
+    if (!r) return;
+    var d = await r.json();
     document.getElementById('stat-trajets').textContent   = fmtNum(d.total_trajets);
     document.getElementById('stat-encours').textContent   = fmtNum(d.trajets_en_cours);
     document.getElementById('stat-vehicules').textContent = fmtNum(d.vehicules_actifs);
     document.getElementById('stat-incidents').textContent = fmtNum(d.incidents_ouverts);
     document.getElementById('stat-recette').textContent   = fmtNum(d.recette_totale);
-  } catch (e) {
-    console.warn('Stats non disponibles', e);
-  }
+  } catch(e) { console.warn('Stats:', e); }
 }
 
 async function loadTrajets() {
   try {
-    const r = await fetch(`${API}/api/trajets/recent`);
-    const data = await r.json();
+    var r = await authFetch(API + '/api/trajets/recent');
+    if (!r) return;
+    var data = await r.json();
     document.getElementById('trajets-table').innerHTML = buildTable(data.slice(0, 8), [
       { key: 'ligne',             label: 'Ligne' },
       { key: 'chauffeur_nom',     label: 'Chauffeur' },
       { key: 'immatriculation',   label: 'Véhicule' },
-      { key: 'date_heure_depart', label: 'Départ',    render: fmtDateTime },
+      { key: 'date_heure_depart', label: 'Départ',   render: fmtDateTime },
       { key: 'nb_passagers',      label: 'Passagers' },
-      { key: 'recette',           label: 'Recette',   render: v => fmtNum(v) + ' FCFA' },
-      { key: 'statut',            label: 'Statut',    render: badge },
+      { key: 'recette',           label: 'Recette',  render: function(v) { return fmtNum(v) + ' FCFA'; } },
+      { key: 'statut',            label: 'Statut',   render: badge },
     ]);
-    if(typeof lucide !== "undefined") lucide.createIcons();
-  } catch (e) {
+    lucide.createIcons();
+  } catch(e) {
     document.getElementById('trajets-table').innerHTML = '<div class="empty">Données non disponibles.</div>';
   }
 }
 
-// ── Véhicules ─────────────────────────────────────────────────
 async function loadVehicules() {
   try {
-    const r = await fetch(`${API}/api/vehicules`);
-    const data = await r.json();
+    var r = await authFetch(API + '/api/vehicules');
+    if (!r) return;
+    var data = await r.json();
     document.getElementById('vehicules-table').innerHTML = buildTable(data, [
       { key: 'immatriculation',  label: 'Immatriculation' },
-      { key: 'type',             label: 'Type',        render: v => `<span class="badge badge-blue">${v}</span>` },
-      { key: 'capacite',         label: 'Capacité',    render: v => v + ' places' },
-      { key: 'kilometrage',      label: 'Kilométrage', render: v => fmtNum(v) + ' km' },
+      { key: 'type',             label: 'Type',        render: function(v) { return '<span class="badge badge-blue">' + v + '</span>'; } },
+      { key: 'capacite',         label: 'Capacité',    render: function(v) { return v + ' places'; } },
+      { key: 'kilometrage',      label: 'Kilométrage', render: function(v) { return fmtNum(v) + ' km'; } },
       { key: 'statut',           label: 'Statut',      render: badge },
       { key: 'date_acquisition', label: 'Acquisition', render: fmtDate },
     ]);
-    if(typeof lucide !== "undefined") lucide.createIcons();
-  } catch (e) {
+    lucide.createIcons();
+  } catch(e) {
     document.getElementById('vehicules-table').innerHTML = '<div class="empty">Données non disponibles.</div>';
   }
 }
 
-// ── Chauffeurs ────────────────────────────────────────────────
 async function loadChauffeurs() {
   try {
-    const r = await fetch(`${API}/api/chauffeurs`);
-    const data = await r.json();
+    var r = await authFetch(API + '/api/chauffeurs');
+    if (!r) return;
+    var data = await r.json();
     document.getElementById('chauffeurs-table').innerHTML = buildTable(data, [
       { key: 'nom',              label: 'Nom' },
       { key: 'prenom',           label: 'Prénom' },
       { key: 'telephone',        label: 'Téléphone' },
-      { key: 'categorie_permis', label: 'Permis',    render: v => `<span class="badge badge-blue">${v}</span>` },
-      { key: 'immatriculation',  label: 'Véhicule',  render: v => v ?? '<span class="badge badge-gray">Non assigné</span>' },
-      { key: 'disponibilite',    label: 'Disponible',
-        render: v => v
-          ? '<span class="badge badge-green">Disponible</span>'
-          : '<span class="badge badge-red">Indisponible</span>' },
-      { key: 'date_embauche',    label: 'Embauche',  render: fmtDate },
+      { key: 'categorie_permis', label: 'Permis',     render: function(v) { return '<span class="badge badge-blue">' + v + '</span>'; } },
+      { key: 'immatriculation',  label: 'Véhicule',   render: function(v) { return v || '<span class="badge badge-gray">Non assigné</span>'; } },
+      { key: 'disponibilite',    label: 'Disponible', render: function(v) { return v ? '<span class="badge badge-green">Disponible</span>' : '<span class="badge badge-red">Indisponible</span>'; } },
+      { key: 'date_embauche',    label: 'Embauche',   render: fmtDate },
     ]);
-    if(typeof lucide !== "undefined") lucide.createIcons();
-  } catch (e) {
+    lucide.createIcons();
+  } catch(e) {
     document.getElementById('chauffeurs-table').innerHTML = '<div class="empty">Données non disponibles.</div>';
   }
 }
 
-// ── Trajets (onglet dédié) ────────────────────────────────────
 async function loadTrajetsTab() {
   try {
-    const r = await fetch(`${API}/api/trajets/recent`);
-    const data = await r.json();
+    var r = await authFetch(API + '/api/trajets/recent');
+    if (!r) return;
+    var data = await r.json();
     document.getElementById('trajets-full-table').innerHTML = buildTable(data, [
-      { key: 'ligne',             label: 'Ligne' },
-      { key: 'chauffeur_nom',     label: 'Chauffeur' },
-      { key: 'immatriculation',   label: 'Véhicule' },
-      { key: 'date_heure_depart', label: 'Départ',   render: fmtDateTime },
-      { key: 'date_heure_arrivee',label: 'Arrivée',  render: fmtDateTime },
-      { key: 'nb_passagers',      label: 'Passagers' },
-      { key: 'recette',           label: 'Recette',  render: v => fmtNum(v) + ' FCFA' },
-      { key: 'statut',            label: 'Statut',   render: badge },
+      { key: 'ligne',              label: 'Ligne' },
+      { key: 'chauffeur_nom',      label: 'Chauffeur' },
+      { key: 'immatriculation',    label: 'Véhicule' },
+      { key: 'date_heure_depart',  label: 'Départ',  render: fmtDateTime },
+      { key: 'date_heure_arrivee', label: 'Arrivée', render: fmtDateTime },
+      { key: 'nb_passagers',       label: 'Passagers' },
+      { key: 'recette',            label: 'Recette', render: function(v) { return fmtNum(v) + ' FCFA'; } },
+      { key: 'statut',             label: 'Statut',  render: badge },
     ]);
-    if(typeof lucide !== "undefined") lucide.createIcons();
-  } catch (e) {
+    lucide.createIcons();
+  } catch(e) {
     document.getElementById('trajets-full-table').innerHTML = '<div class="empty">Données non disponibles.</div>';
   }
 }
 
-// ── Chat IA ───────────────────────────────────────────────────
 function ask(question) {
   showTab('chat', document.querySelectorAll('.nav-item')[4]);
   document.getElementById('user-input').value = question;
   sendMessage();
 }
 
-function addMessage(role, text, sql = null) {
-  const box = document.getElementById('chat-box');
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-
-  const avatarIcon = role === 'bot' ? 'bot' : 'user';
-  const sqlBlock = sql ? `<div class="sql-preview">${sql}</div>` : '';
-
-  div.innerHTML = `
-    <div class="msg-avatar">
-      <i data-lucide="${avatarIcon}"></i>
-    </div>
-    <div class="bubble">${text}${sqlBlock}</div>
-  `;
+function addMessage(role, text, sql) {
+  var box = document.getElementById('chat-box');
+  var div = document.createElement('div');
+  div.className = 'msg ' + role;
+  var icon = role === 'bot' ? 'bot' : 'user';
+  var sqlBlock = sql ? '<div class="sql-preview">' + sql + '</div>' : '';
+  div.innerHTML = '<div class="msg-avatar"><i data-lucide="' + icon + '"></i></div><div class="bubble">' + text + sqlBlock + '</div>';
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
-  if(typeof lucide !== "undefined") lucide.createIcons();
-  return div; // retourne l'élément pour pouvoir le supprimer précisément
+  lucide.createIcons();
+  return div;
 }
 
 async function sendMessage() {
-  const input = document.getElementById('user-input');
-  const question = input.value.trim();
+  var input = document.getElementById('user-input');
+  var question = input.value.trim();
   if (!question) return;
   input.value = '';
-
-  // Désactiver le bouton pendant la requête
-  const btn = document.querySelector('.btn-send');
+  var btn = document.querySelector('.btn-send');
   btn.disabled = true;
-
   addMessage('user', question);
-  const loadingMsg = addMessage('bot', '<span style="color:var(--gray-400)">Analyse en cours...</span>');
-
+  var loading = addMessage('bot', '<span style="color:var(--gray-400)">Analyse en cours...</span>');
   try {
-    const r = await fetch(`${API}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question }),
-    });
-
-    loadingMsg.remove();
-
-    if (!r.ok) {
-      const err = await r.json();
-      addMessage('bot', `Erreur : ${err.detail || 'Réponse inattendue du serveur.'}`);
-      return;
-    }
-
-    const data = await r.json();
-    const countText = data.count !== undefined
-      ? ` <span style="color:var(--gray-400);font-size:12px">(${data.count} résultat${data.count > 1 ? 's' : ''})</span>`
-      : '';
-    addMessage('bot', data.answer + countText, data.sql);
-
-    const section = document.getElementById('results-section');
+    var r = await authFetch(API + '/api/chat', { method: 'POST', body: JSON.stringify({ question: question }) });
+    loading.remove();
+    if (!r) return;
+    if (!r.ok) { var err = await r.json(); addMessage('bot', 'Erreur : ' + (err.detail || '?')); return; }
+    var data = await r.json();
+    var ct = data.count !== undefined ? ' <span style="opacity:.6;font-size:12px">(' + data.count + ' rés.)</span>' : '';
+    addMessage('bot', data.answer + ct, data.sql);
+    var section = document.getElementById('results-section');
     if (data.data && data.data.length > 0) {
       section.style.display = 'block';
-      const keys = Object.keys(data.data[0]);
-      document.getElementById('results-table').innerHTML = buildTable(
-        data.data,
-        keys.map(k => ({ key: k, label: k }))
-      );
-      if(typeof lucide !== "undefined") lucide.createIcons();
-    } else {
-      section.style.display = 'none';
-    }
-  } catch (e) {
-    loadingMsg.remove();
-    addMessage('bot', 'Impossible de joindre le serveur. Vérifiez que le backend est démarré sur le port 8000.');
-  } finally {
-    btn.disabled = false;
-  }
+      var keys = Object.keys(data.data[0]);
+      document.getElementById('results-table').innerHTML = buildTable(data.data, keys.map(function(k) { return { key: k, label: k }; }));
+      lucide.createIcons();
+    } else { section.style.display = 'none'; }
+  } catch(e) { loading.remove(); addMessage('bot', 'Impossible de joindre le serveur.'); }
+  finally { btn.disabled = false; }
 }
-
-
-
-
