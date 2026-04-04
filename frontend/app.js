@@ -196,13 +196,14 @@ function ask(question) {
   sendMessage();
 }
 
-function addMessage(role, text, sql) {
+function addMessage(role, text, sql, tableHtml) {
   var box = document.getElementById('chat-box');
   var div = document.createElement('div');
   div.className = 'msg ' + role;
   var icon = role === 'bot' ? 'bot' : 'user';
   var sqlBlock = sql ? '<div class="sql-preview">' + sql + '</div>' : '';
-  div.innerHTML = '<div class="msg-avatar"><i data-lucide="' + icon + '"></i></div><div class="bubble">' + text + sqlBlock + '</div>';
+  var tableBlock = tableHtml ? tableHtml : '';
+  div.innerHTML = '<div class="msg-avatar"><i data-lucide="' + icon + '"></i></div><div class="bubble">' + text + sqlBlock + tableBlock + '</div>';
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
   lucide.createIcons();
@@ -224,15 +225,15 @@ async function sendMessage() {
     if (!r) return;
     if (!r.ok) { var err = await r.json(); addMessage('bot', 'Erreur : ' + (err.detail || '?')); return; }
     var data = await r.json();
-    var ct = data.count !== undefined ? ' <span style="opacity:.6;font-size:12px">(' + data.count + ' rés.)</span>' : '';
-    addMessage('bot', data.answer + ct, data.sql);
-    var section = document.getElementById('results-section');
+    var ct = '';
     if (data.data && data.data.length > 0) {
-      section.style.display = 'block';
       var keys = Object.keys(data.data[0]);
-      document.getElementById('results-table').innerHTML = buildTable(data.data, keys.map(function(k) { return { key: k, label: k }; }));
-      lucide.createIcons();
-    } else { section.style.display = 'none'; }
+      var tableHtml = '<div class="table-wrap">' + buildTable(data.data, keys.map(function(k) { return { key: k, label: k }; })) + '</div>';
+      addMessage('bot', data.answer + ct, data.sql, tableHtml);
+    } else {
+      addMessage('bot', data.answer + ct, data.sql);
+    }
+    document.getElementById('results-section').style.display = 'none';
   } catch(e) { loading.remove(); addMessage('bot', 'Impossible de joindre le serveur.'); }
   finally { btn.disabled = false; }
 }

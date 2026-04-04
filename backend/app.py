@@ -68,13 +68,20 @@ trajets(id, ligne_id, chauffeur_id, vehicule_id, date_heure_depart, date_heure_a
 incidents(id, trajet_id, type[panne/accident/retard/autre], description, gravite[faible/moyen/grave], date_incident, resolu)
 """
 
-SYSTEM_PROMPT = f"""Tu es TranspoBot, assistant intelligent de transport urbain.
+SYSTEM_PROMPT = f"""Tu es TranspoBot, assistant sympathique de gestion de transport urbain.
 {DB_SCHEMA}
 REGLES :
 1. Genere UNIQUEMENT des requetes SELECT.
 2. Reponds TOUJOURS en JSON : {{"sql": "SELECT ...", "explication": "..."}}
 3. Si pas de SQL possible : {{"sql": null, "explication": "..."}}
-4. Utilise des alias clairs. Ajoute LIMIT 100.
+4. L'explication doit etre chaleureuse, informative et inclure les resultats concrets quand possible.
+   - Mentionne les chiffres, noms, et details importants directement dans la reponse.
+   - Exemple : "Cette semaine, 5 trajets ont ete effectues, dont 4 termines et 1 en cours."
+   - Exemple : "Ibrahima FALL est le chauffeur avec le plus d incidents ce mois-ci (2 incidents)."
+   - Exemple : "3 vehicules sont actuellement en maintenance : DK-9012-EF, DK-1234-AB et DK-5678-CD."
+   - Garde un ton positif et professionnel, comme un assistant qui connait bien la flotte.
+   - Maximum 3-4 phrases.
+5. Utilise des alias clairs. Ajoute LIMIT 100.
 """
 
 def serialize(obj):
@@ -84,7 +91,13 @@ def serialize(obj):
     raise TypeError(f"Non serialisable: {type(obj)}")
 
 def serialize_rows(rows):
-    return json.loads(json.dumps(rows, default=serialize))
+    # Convertir les floats entiers en int pour éviter le .0
+    result = json.loads(json.dumps(rows, default=serialize))
+    for row in result:
+        for k, v in row.items():
+            if isinstance(v, float) and v == int(v):
+                row[k] = int(v)
+    return result
 
 FORBIDDEN = re.compile(r'\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|GRANT|REVOKE)\b', re.IGNORECASE)
 
@@ -122,6 +135,30 @@ async def ask_llm(question):
             return json.loads(match.group())
         raise ValueError(f"Reponse LLM invalide: {content}")
 
+async def generate_answer(question: str, data: list) -> str:
+    """Génère une réponse chaleureuse basée sur les vrais résultats."""
+    data_preview = str(data[:10]) if data else "aucun résultat"
+    prompt = f"""Question : "{question}"
+Résultats de la requête : {data_preview}
+
+Réponds en français, 1-2 phrases max, de façon directe et chaleureuse.
+- Si le résultat est un nombre (COUNT, SUM...), dis simplement ce nombre avec contexte. Ex: "Cette semaine, 5 trajets ont été effectués."
+- Si 0 résultat : sois honnête mais positif. Ex: "Aucun trajet enregistré cette semaine."
+- Cite les noms/valeurs concrets si disponibles.
+- Ne dis JAMAIS "le nombre de résultats est de X" ou "selon les données disponibles".
+- Pas de phrases techniques. Juste la réponse utile.
+Réponds uniquement avec le texte, sans JSON ni guillemets."""
+
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            f"{LLM_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {LLM_API_KEY}"},
+            json={"model": LLM_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2},
+            timeout=20,
+        )
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"].strip()
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -155,7 +192,8 @@ async def chat(msg: ChatMessage):
         if not is_safe_sql(sql):
             raise ValueError("Requete non autorisee.")
         data = execute_query(sql)
-        return {"answer": explication, "data": data, "sql": sql, "count": len(data)}
+        answer = await generate_answer(msg.question, data)
+        return {"answer": answer, "data": data, "sql": sql, "count": len(data)}
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=502, detail=f"Erreur LLM: {e.response.text}")
     except ValueError as e:
