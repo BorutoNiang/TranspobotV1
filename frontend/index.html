@@ -80,7 +80,6 @@
         </button>
       </div>
     </header>
-
     <main class="content">
 
       <!-- TAB : Dashboard -->
@@ -269,6 +268,29 @@
 
     </main>
   </div>
+
+<nav class="bottom-nav">
+    <button class="bottom-nav-item active" onclick="showTab('dashboard', this)">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Dashboard</span>
+    </button>
+    <button class="bottom-nav-item" onclick="showTab('vehicules', this)">
+      <i data-lucide="truck"></i>
+      <span>Véhicules</span>
+    </button>
+    <button class="bottom-nav-item" onclick="showTab('chauffeurs', this)">
+      <i data-lucide="users"></i>
+      <span>Chauffeurs</span>
+    </button>
+    <button class="bottom-nav-item" onclick="showTab('trajets', this)">
+      <i data-lucide="map"></i>
+      <span>Trajets</span>
+    </button>
+    <button class="bottom-nav-item" onclick="showTab('chat', this)">
+      <i data-lucide="bot"></i>
+      <span>IA</span>
+    </button>
+  </nav>
 
 <script src="app.js?v=6"></script>
 </body>

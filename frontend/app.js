@@ -21,6 +21,7 @@ const pageTitles = {
 function showTab(name, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
   document.getElementById(`tab-${name}`).classList.add('active');
   if (btn) btn.classList.add('active');
   document.getElementById('page-title').textContent = pageTitles[name] || name;
@@ -253,5 +254,6 @@ async function sendMessage() {
     btn.disabled = false;
   }
 }
+
 
 
