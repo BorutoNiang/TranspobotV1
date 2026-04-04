@@ -1,4 +1,9 @@
-﻿function logout() { localStorage.clear(); window.location.replace('/login.html'); }
+﻿function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+function logout() { localStorage.clear(); window.location.replace('/login.html'); }
 
 const API = window.location.hostname === 'localhost' ? 'http://localhost:8000' : 'https://gregarious-ambition-production-302e.up.railway.app';
 
@@ -254,6 +259,7 @@ async function sendMessage() {
     btn.disabled = false;
   }
 }
+
 
 
 
