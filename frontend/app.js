@@ -32,11 +32,20 @@ document.addEventListener('DOMContentLoaded', function() {
   var emailEl = document.getElementById('user-email');
   if (nameEl) nameEl.textContent = localStorage.getItem('user_nom') || 'Gestionnaire';
   if (emailEl) emailEl.textContent = localStorage.getItem('user_email') || '';
+
+  // Pré-remplir la date incident
+  var dateInput = document.getElementById('inc-date');
+  if (dateInput) {
+    var now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    dateInput.value = now.toISOString().slice(0, 16);
+  }
+
   loadStats();
   loadTrajets();
 });
 
-var pageTitles = { dashboard: 'Dashboard', vehicules: 'Véhicules', chauffeurs: 'Chauffeurs', trajets: 'Trajets', chat: 'Assistant IA' };
+var pageTitles = { dashboard: 'Dashboard', vehicules: 'Véhicules', chauffeurs: 'Chauffeurs', trajets: 'Trajets', incidents: 'Incidents', chat: 'Assistant IA' };
 
 function showTab(name, btn) {
   document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
@@ -47,6 +56,7 @@ function showTab(name, btn) {
   if (name === 'vehicules') loadVehicules();
   if (name === 'chauffeurs') loadChauffeurs();
   if (name === 'trajets') loadTrajetsTab();
+  if (name === 'incidents') { loadTrajetsSelect(); loadIncidents(); }
   document.querySelector('.sidebar').classList.remove('open');
   var overlay = document.getElementById('sidebar-overlay');
   if (overlay) overlay.classList.remove('open');
@@ -190,8 +200,133 @@ async function loadTrajetsTab() {
   }
 }
 
+// Incidents
+async function loadTrajetsSelect() {
+  try {
+    var r = await authFetch(API + '/api/trajets/recent');
+    if (!r) return;
+    var data = await r.json();
+    var select = document.getElementById('inc-trajet');
+    if (!select) return;
+    select.innerHTML = '<option value="">— Sélectionner un trajet —</option>';
+    data.forEach(function(t) {
+      select.innerHTML += '<option value="' + t.id + '">' + t.ligne + ' — ' + t.chauffeur_nom + ' (' + fmtDateTime(t.date_heure_depart) + ')</option>';
+    });
+  } catch(e) { console.warn('Trajets select:', e); }
+}
+
+async function loadIncidents() {
+  var el = document.getElementById('incidents-table');
+  if (!el) return;
+  el.innerHTML = '<div class="loading"><i data-lucide="loader"></i> Chargement...</div>';
+  lucide.createIcons();
+  try {
+    var r = await authFetch(API + '/api/incidents');
+    if (!r) return;
+    var data = await r.json();
+    el.innerHTML = buildTable(data, [
+      { key: 'id',            label: '#' },
+      { key: 'ligne',         label: 'Ligne' },
+      { key: 'immatriculation', label: 'Véhicule' },
+      { key: 'chauffeur_nom', label: 'Chauffeur' },
+      { key: 'type',          label: 'Type', render: function(v) {
+        var icons = { panne: '🔧', accident: '💥', retard: '⏰', autre: 'ℹ️' };
+        return (icons[v] || '') + ' ' + v.charAt(0).toUpperCase() + v.slice(1);
+      }},
+      { key: 'gravite',       label: 'Gravité', render: function(v) {
+        var map = { faible: 'badge-gray', moyen: 'badge-orange', grave: 'badge-red' };
+        return '<span class="badge ' + (map[v] || 'badge-gray') + '">' + v.charAt(0).toUpperCase() + v.slice(1) + '</span>';
+      }},
+      { key: 'description',   label: 'Description', render: function(v) { return v || '—'; } },
+      { key: 'date_incident', label: 'Date', render: fmtDateTime },
+      { key: 'resolu',        label: 'Statut', render: function(v) {
+        return v ? '<span class="badge badge-green">✅ Résolu</span>' : '<span class="badge badge-red">🔴 Ouvert</span>';
+      }},
+      { key: 'id',            label: 'Action', render: function(v, row) {
+        var btns = '';
+        if (row.resolu) btns += '<button class="btn-action btn-reopen" onclick="toggleResolu(' + v + ', false)">Réouvrir</button> ';
+        else btns += '<button class="btn-action btn-resolve" onclick="toggleResolu(' + v + ', true)">Résoudre</button> ';
+        btns += '<button class="btn-action btn-delete" onclick="deleteIncident(' + v + ')">Supprimer</button>';
+        return btns;
+      }},
+    ]);
+    lucide.createIcons();
+  } catch(e) {
+    el.innerHTML = '<div class="empty">Données non disponibles.</div>';
+  }
+}
+
+async function submitIncident() {
+  var trajetId    = document.getElementById('inc-trajet').value;
+  var type        = document.getElementById('inc-type').value;
+  var gravite     = document.getElementById('inc-gravite').value;
+  var date        = document.getElementById('inc-date').value;
+  var description = document.getElementById('inc-description').value;
+  var feedback    = document.getElementById('inc-feedback');
+
+  if (!trajetId) { showFeedback(feedback, 'Veuillez sélectionner un trajet.', 'error'); return; }
+  if (!date)     { showFeedback(feedback, 'Veuillez indiquer une date.', 'error'); return; }
+
+  var btn = document.querySelector('.btn-submit');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader"></i> Envoi...';
+  lucide.createIcons();
+
+  try {
+    var r = await authFetch(API + '/api/incidents', {
+      method: 'POST',
+      body: JSON.stringify({
+        trajet_id: parseInt(trajetId),
+        type: type, gravite: gravite,
+        date_incident: date.replace('T', ' ') + ':00',
+        description: description || null
+      })
+    });
+    if (!r) return;
+    if (!r.ok) { var err = await r.json(); showFeedback(feedback, 'Erreur : ' + (err.detail || 'inconnue'), 'error'); return; }
+    showFeedback(feedback, '✅ Incident signalé ! Notification Telegram envoyée.', 'success');
+    document.getElementById('inc-trajet').value = '';
+    document.getElementById('inc-description').value = '';
+    document.getElementById('inc-type').value = 'panne';
+    document.getElementById('inc-gravite').value = 'faible';
+    loadIncidents();
+    loadStats();
+  } catch(e) {
+    showFeedback(feedback, 'Impossible de joindre le serveur.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="send"></i> Signaler l\'incident';
+    lucide.createIcons();
+  }
+}
+
+async function toggleResolu(id, resolu) {
+  try {
+    var r = await authFetch(API + '/api/incidents/' + id, { method: 'PUT', body: JSON.stringify({ resolu: resolu }) });
+    if (!r || !r.ok) return;
+    loadIncidents();
+    loadStats();
+  } catch(e) { console.warn('Toggle resolu:', e); }
+}
+
+async function deleteIncident(id) {
+  if (!confirm('Supprimer cet incident ? Cette action est irréversible.')) return;
+  try {
+    var r = await authFetch(API + '/api/incidents/' + id, { method: 'DELETE' });
+    if (!r || !r.ok) return;
+    loadIncidents();
+    loadStats();
+  } catch(e) { console.warn('Delete incident:', e); }
+}
+
+function showFeedback(el, message, type) {
+  el.textContent = message;
+  el.className = 'inc-feedback ' + type;
+  setTimeout(function() { el.textContent = ''; el.className = 'inc-feedback'; }, 5000);
+}
+
 function ask(question) {
-  showTab('chat', document.querySelectorAll('.nav-item')[4]);
+  showTab('chat', document.querySelectorAll('.nav-item')[5]);
   document.getElementById('user-input').value = question;
   sendMessage();
 }

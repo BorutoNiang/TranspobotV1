@@ -42,6 +42,10 @@
         <i data-lucide="map"></i>
         <span>Trajets</span>
       </button>
+      <button class="nav-item" onclick="showTab('incidents', this)">
+        <i data-lucide="alert-triangle"></i>
+        <span>Incidents</span>
+      </button>
       <button class="nav-item" onclick="showTab('chat', this)">
         <i data-lucide="bot"></i>
         <span>Assistant IA</span>
@@ -190,8 +194,76 @@
         </div>
       </section>
 
-      <!-- TAB : Chat IA -->
-      <section id="tab-chat" class="tab">
+      <!-- TAB : Incidents -->
+      <section id="tab-incidents" class="tab">
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="plus-circle"></i>
+              Signaler un incident
+            </div>
+          </div>
+          <div class="incident-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Trajet concerné *</label>
+                <select id="inc-trajet"><option value="">Chargement...</option></select>
+              </div>
+              <div class="form-group">
+                <label>Type d'incident *</label>
+                <select id="inc-type">
+                  <option value="panne">🔧 Panne</option>
+                  <option value="accident">💥 Accident</option>
+                  <option value="retard">⏰ Retard</option>
+                  <option value="autre">ℹ️ Autre</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Gravité *</label>
+                <select id="inc-gravite">
+                  <option value="faible">🟡 Faible</option>
+                  <option value="moyen">🟠 Moyen</option>
+                  <option value="grave">🔴 Grave</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Date et heure *</label>
+                <input type="datetime-local" id="inc-date">
+              </div>
+            </div>
+            <div class="form-group full">
+              <label>Description</label>
+              <textarea id="inc-description" placeholder="Décrivez l'incident..." rows="3"></textarea>
+            </div>
+            <div class="form-actions">
+              <button class="btn-submit" onclick="submitIncident()">
+                <i data-lucide="send"></i>
+                Signaler l'incident
+              </button>
+              <span id="inc-feedback" class="inc-feedback"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="alert-triangle"></i>
+              Historique des incidents
+            </div>
+            <button class="btn-icon" onclick="loadIncidents()" title="Actualiser">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+          </div>
+          <div class="table-wrap" id="incidents-table">
+            <div class="loading"><i data-lucide="loader"></i> Chargement...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB : Chat IA -->      <section id="tab-chat" class="tab">
         <div class="chat-layout">
 
           <div class="chat-main card">
@@ -279,6 +351,6 @@
     </main>
   </div>
 
-<script src="app.js?v=6"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

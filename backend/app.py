@@ -38,6 +38,22 @@ LLM_MODEL    = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
 JWT_SECRET   = os.getenv("JWT_SECRET", "transpobot-secret-2026")
 
+TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+
+async def send_telegram(message: str):
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"},
+                timeout=10,
+            )
+    except Exception as e:
+        print(f"[Telegram] Erreur: {e}")
+
 bearer_scheme = HTTPBearer()
 
 def verify_password(plain, hashed):
@@ -166,6 +182,19 @@ class LoginRequest(BaseModel):
 class ChatMessage(BaseModel):
     question: str
 
+class IncidentCreate(BaseModel):
+    trajet_id: int
+    type: str
+    description: str = None
+    gravite: str = "faible"
+    date_incident: str
+
+class IncidentUpdate(BaseModel):
+    type: str = None
+    description: str = None
+    gravite: str = None
+    resolu: bool = None
+
 @app.post("/api/login")
 def login(req: LoginRequest):
     conn = get_db()
@@ -235,7 +264,116 @@ def get_trajets_recent():
         ORDER BY t.date_heure_depart DESC LIMIT 20
     """)
 
-@app.get("/health")
+@app.post("/api/incidents")
+async def create_incident(incident: IncidentCreate, email: str = Depends(verify_token)):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT t.id, l.nom as ligne, ch.nom as chauffeur_nom, ch.prenom as chauffeur_prenom, v.immatriculation
+            FROM trajets t
+            JOIN lignes l ON t.ligne_id = l.id
+            JOIN chauffeurs ch ON t.chauffeur_id = ch.id
+            JOIN vehicules v ON t.vehicule_id = v.id
+            WHERE t.id = %s
+        """, (incident.trajet_id,))
+        trajet = cursor.fetchone()
+
+        cursor.execute("""
+            INSERT INTO incidents (trajet_id, type, description, gravite, date_incident, resolu)
+            VALUES (%s, %s, %s, %s, %s, FALSE)
+        """, (incident.trajet_id, incident.type, incident.description, incident.gravite, incident.date_incident))
+        conn.commit()
+        incident_id = cursor.lastrowid
+
+        gravite_emoji = {"faible": "🟡", "moyen": "🟠", "grave": "🔴"}.get(incident.gravite, "⚠️")
+        type_emoji    = {"panne": "🔧", "accident": "💥", "retard": "⏰", "autre": "ℹ️"}.get(incident.type, "📋")
+        ligne_info    = trajet["ligne"] if trajet else f"Trajet #{incident.trajet_id}"
+        chauffeur     = f"{trajet['chauffeur_prenom']} {trajet['chauffeur_nom']}" if trajet else "Inconnu"
+        vehicule      = trajet["immatriculation"] if trajet else "Inconnu"
+
+        message = (
+            f"{gravite_emoji} <b>NOUVEL INCIDENT — TranspoBot</b>\n\n"
+            f"{type_emoji} <b>Type :</b> {incident.type.capitalize()}\n"
+            f"🚨 <b>Gravité :</b> {incident.gravite.capitalize()}\n"
+            f"🚌 <b>Véhicule :</b> {vehicule}\n"
+            f"👤 <b>Chauffeur :</b> {chauffeur}\n"
+            f"🗺️ <b>Ligne :</b> {ligne_info}\n"
+            f"📝 <b>Description :</b> {incident.description or 'Aucune'}\n"
+            f"🕐 <b>Date :</b> {incident.date_incident}\n"
+            f"🔖 <b>Incident #</b>{incident_id}"
+        )
+        await send_telegram(message)
+        return {"id": incident_id, "message": "Incident créé et notification envoyée"}
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.put("/api/incidents/{incident_id}")
+async def update_incident(incident_id: int, update: IncidentUpdate, email: str = Depends(verify_token)):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT * FROM incidents WHERE id = %s", (incident_id,))
+        existing = cursor.fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Incident non trouvé")
+
+        fields, values = [], []
+        if update.type is not None:        fields.append("type = %s");        values.append(update.type)
+        if update.description is not None: fields.append("description = %s"); values.append(update.description)
+        if update.gravite is not None:     fields.append("gravite = %s");     values.append(update.gravite)
+        if update.resolu is not None:      fields.append("resolu = %s");      values.append(update.resolu)
+
+        if fields:
+            values.append(incident_id)
+            cursor.execute(f"UPDATE incidents SET {', '.join(fields)} WHERE id = %s", values)
+            conn.commit()
+
+        if update.resolu is True and not existing["resolu"]:
+            await send_telegram(
+                f"✅ <b>INCIDENT RÉSOLU — TranspoBot</b>\n\n"
+                f"L'incident <b>#{incident_id}</b> a été marqué comme résolu.\n"
+                f"Type : {existing['type'].capitalize()} | Gravité : {existing['gravite'].capitalize()}"
+            )
+        elif update.resolu is False and existing["resolu"]:
+            await send_telegram(
+                f"🔄 <b>INCIDENT RÉOUVERT — TranspoBot</b>\n\n"
+                f"L'incident <b>#{incident_id}</b> a été réouvert.\n"
+                f"Type : {existing['type'].capitalize()} | Gravité : {existing['gravite'].capitalize()}"
+            )
+        return {"message": "Incident mis à jour"}
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.delete("/api/incidents/{incident_id}")
+async def delete_incident(incident_id: int, email: str = Depends(verify_token)):
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT * FROM incidents WHERE id = %s", (incident_id,))
+        existing = cursor.fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Incident non trouvé")
+        cursor.execute("DELETE FROM incidents WHERE id = %s", (incident_id,))
+        conn.commit()
+        return {"message": "Incident supprimé"}
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.get("/api/incidents")
+def get_incidents(email: str = Depends(verify_token)):
+    return execute_query("""
+        SELECT i.*, t.id as trajet_ref, l.nom as ligne, v.immatriculation, ch.nom as chauffeur_nom
+        FROM incidents i
+        JOIN trajets t ON i.trajet_id = t.id
+        JOIN lignes l ON t.ligne_id = l.id
+        JOIN vehicules v ON t.vehicule_id = v.id
+        JOIN chauffeurs ch ON t.chauffeur_id = ch.id
+        ORDER BY i.date_incident DESC
+    """)
 def health():
     return {"status": "ok", "app": "TranspoBot", "model": LLM_MODEL}
 

@@ -712,3 +712,177 @@ body {
   .kpi-wide { grid-column: span 1; }
   .page-title { font-size: 14px; }
 }
+
+/* ── Formulaire Incidents ── */
+.incident-form {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group.full { grid-column: span 2; }
+
+.form-group label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group select,
+.form-group input[type="datetime-local"],
+.form-group textarea {
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-family: 'Inter', sans-serif;
+  color: var(--gray-800);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: var(--gray-50);
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.form-group select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.form-group select:focus,
+.form-group input[type="datetime-local"]:focus,
+.form-group textarea:focus {
+  border-color: var(--blue);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 90px;
+  line-height: 1.5;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.btn-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 24px;
+  background: var(--blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+}
+
+.btn-submit:hover { background: var(--blue-dark); transform: translateY(-1px); }
+.btn-submit:active { transform: translateY(0); }
+.btn-submit:disabled { background: #93c5fd; cursor: not-allowed; box-shadow: none; transform: none; }
+.btn-submit svg { width: 15px; height: 15px; }
+
+.inc-feedback {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.inc-feedback.success {
+  color: var(--green);
+  background: var(--green-light);
+}
+
+.inc-feedback.error {
+  color: var(--red);
+  background: var(--red-light);
+}
+
+/* Badges action */
+.btn-action {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-resolve { background: var(--green-light); color: var(--green); }
+.btn-resolve:hover { background: #bbf7d0; }
+.btn-reopen  { background: var(--orange-light); color: var(--orange); }
+.btn-reopen:hover  { background: #fed7aa; }
+.btn-delete  { background: var(--red-light); color: var(--red); }
+.btn-delete:hover  { background: #fecaca; }
+
+/* Tableau dans le chat */
+.msg.bot .bubble .table-wrap {
+  margin-top: 10px;
+  border-radius: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--gray-200);
+  max-width: 100%;
+}
+
+.msg.bot .bubble .table-wrap table { min-width: 400px; font-size: 12px; }
+.msg.bot .bubble .table-wrap thead th { padding: 6px 10px; font-size: 10px; white-space: nowrap; }
+.msg.bot .bubble .table-wrap tbody td { padding: 6px 10px; white-space: nowrap; }
+
+/* Bouton déconnexion topbar mobile */
+.btn-logout-mobile {
+  display: none;
+  width: 36px; height: 36px;
+  border: 1px solid var(--red-light);
+  border-radius: var(--radius-sm);
+  background: var(--red-light);
+  color: var(--red);
+  cursor: pointer;
+  align-items: center; justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-logout-mobile svg { width: 16px; height: 16px; }
+.btn-logout-mobile:hover { background: var(--red); color: white; }
+
+@media (max-width: 768px) {
+  .btn-logout-mobile { display: flex; }
+  .form-row { grid-template-columns: 1fr; }
+  .form-group.full { grid-column: span 1; }
+  .incident-form { padding: 16px; gap: 14px; }
+}
