@@ -336,9 +336,10 @@ async function handleLogin(e) {
 
     const data = await r.json();
     localStorage.setItem('token', data.token);
+    localStorage.setItem('token', data.token);
     localStorage.setItem('user_nom', data.nom);
     localStorage.setItem('user_email', data.email);
-    window.location.replace('index.html?token=' + encodeURIComponent(data.token) + '&nom=' + encodeURIComponent(data.nom) + '&email=' + encodeURIComponent(data.email));
+    window.location.replace('index.html');
 
   } catch (e) {
     errText.textContent = 'Impossible de joindre le serveur.';

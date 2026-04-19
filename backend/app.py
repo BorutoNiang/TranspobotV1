@@ -1,4 +1,4 @@
-"""
+﻿"""
 TranspoBot — Backend FastAPI
 """
 
@@ -87,15 +87,13 @@ incidents(id, trajet_id, type[panne/accident/retard/autre], description, gravite
 SYSTEM_PROMPT = f"""Tu es TranspoBot, assistant sympathique de gestion de transport urbain.
 {DB_SCHEMA}
 REGLES :
-1. Genere UNIQUEMENT des requetes SELECT.
-2. Reponds TOUJOURS en JSON : {{"sql": "SELECT ...", "explication": "..."}}
-3. Si pas de SQL possible : {{"sql": null, "explication": "..."}}
+1. Genere UNIQUEMENT des requetes SELECT. JAMAIS de DELETE, INSERT, UPDATE, DROP, ALTER.
+2. Si l'utilisateur demande de supprimer, modifier ou effacer des données, reponds OBLIGATOIREMENT :
+   {{"sql": null, "explication": "Je ne peux pas effectuer cette opération. Je suis uniquement autorisé à consulter les données, pas à les modifier ou supprimer."}}
+3. Reponds TOUJOURS en JSON : {{"sql": "SELECT ...", "explication": "..."}}
 4. L'explication doit etre chaleureuse, informative et inclure les resultats concrets quand possible.
    - Mentionne les chiffres, noms, et details importants directement dans la reponse.
-   - Exemple : "Cette semaine, 5 trajets ont ete effectues, dont 4 termines et 1 en cours."
-   - Exemple : "Ibrahima FALL est le chauffeur avec le plus d incidents ce mois-ci (2 incidents)."
-   - Exemple : "3 vehicules sont actuellement en maintenance : DK-9012-EF, DK-1234-AB et DK-5678-CD."
-   - Garde un ton positif et professionnel, comme un assistant qui connait bien la flotte.
+   - Garde un ton positif et professionnel.
    - Maximum 3-4 phrases.
 5. Utilise des alias clairs. Ajoute LIMIT 100.
 """
@@ -115,7 +113,16 @@ def serialize_rows(rows):
                 row[k] = int(v)
     return result
 
-FORBIDDEN = re.compile(r'\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|GRANT|REVOKE)\b', re.IGNORECASE)
+FORBIDDEN = re.compile(
+    r'\b('
+    r'INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|GRANT|REVOKE|MERGE'
+    r'|RENAME|LOCK|UNLOCK|FLUSH|RESET|PURGE|LOAD|CALL|EXEC|EXECUTE'
+    r'|SLEEP|BENCHMARK|WAIT|DELAY|PG_SLEEP'
+    r'|INTO\s+OUTFILE|INTO\s+DUMPFILE|LOAD_FILE'
+    r'|INFORMATION_SCHEMA|SYS\.|MYSQL\.'
+    r')\b',
+    re.IGNORECASE
+)
 
 def is_safe_sql(sql):
     s = sql.strip()
@@ -130,6 +137,7 @@ def execute_query(sql):
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
     try:
+        cursor.execute("SET SESSION MAX_EXECUTION_TIME=5000")
         cursor.execute(sql)
         return serialize_rows(cursor.fetchall())
     finally:
@@ -374,6 +382,8 @@ def get_incidents(email: str = Depends(verify_token)):
         JOIN chauffeurs ch ON t.chauffeur_id = ch.id
         ORDER BY i.date_incident DESC
     """)
+
+@app.get("/health")
 def health():
     return {"status": "ok", "app": "TranspoBot", "model": LLM_MODEL}
 
@@ -410,3 +420,6 @@ if os.path.exists(frontend_path):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+
+
+
