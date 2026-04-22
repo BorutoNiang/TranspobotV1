@@ -368,6 +368,19 @@ async function sendMessage() {
     } else {
       addMessage('bot', data.answer + ct, data.sql);
     }
+    // Afficher les suggestions dynamiques
+    if (data.suggestions && data.suggestions.length > 0) {
+      var sugDiv = document.createElement('div');
+      sugDiv.className = 'chat-suggestions-dynamic';
+      data.suggestions.forEach(function(s) {
+        var btn = document.createElement('button');
+        btn.textContent = s;
+        btn.onclick = function() { ask(s); };
+        sugDiv.appendChild(btn);
+      });
+      document.getElementById('chat-box').appendChild(sugDiv);
+      document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+    }
     document.getElementById('results-section').style.display = 'none';
   } catch(e) { loading.remove(); addMessage('bot', 'Impossible de joindre le serveur.'); }
   finally { btn.disabled = false; }

@@ -903,3 +903,29 @@ body {
   .form-group.full { grid-column: span 1; }
   .incident-form { padding: 16px; gap: 14px; }
 }
+
+/* Suggestions dynamiques dans le chat */
+.chat-suggestions-dynamic {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 4px 42px;
+}
+
+.chat-suggestions-dynamic button {
+  background: var(--blue-light);
+  color: var(--blue);
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.chat-suggestions-dynamic button:hover {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+}
